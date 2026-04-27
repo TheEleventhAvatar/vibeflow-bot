@@ -3,183 +3,586 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>VibeFlow Bot - AI Project Assistant</title>
-    <link rel="stylesheet" href="styles.css">
-    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
+    <title>VibeFlow MCP Chat Interface</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        .message { animation: fadeIn 0.3s ease-in; }
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+        .tool-response { background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); }
+        .user-message { background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%); }
+        .typing-indicator span { animation: blink 1.4s infinite; }
+        .typing-indicator span:nth-child(2) { animation-delay: 0.2s; }
+        .typing-indicator span:nth-child(3) { animation-delay: 0.4s; }
+        @keyframes blink { 0%, 60%, 100% { opacity: 0.3; } 30% { opacity: 1; } }
+        .tool-button { transition: all 0.2s ease; }
+        .tool-button:hover { transform: translateY(-1px); }
+    </style>
 </head>
-<body>
-    <div class="chat-container">
-        <!-- Header -->
-        <header class="chat-header">
-            <div class="header-content">
-                <div class="bot-info">
-                    <div class="bot-avatar">
-                        <i class="fas fa-robot"></i>
-                    </div>
-                    <div class="bot-details">
-                        <h1>VibeFlow Bot</h1>
-                        <span class="status-indicator online"></span>
-                        <span class="status-text">Online</span>
-                    </div>
+<body class="bg-gray-100 h-screen flex flex-col">
+    <!-- Header -->
+    <header class="bg-white shadow-sm border-b border-gray-200">
+        <div class="max-w-4xl mx-auto px-4 py-4 flex items-center justify-between">
+            <div class="flex items-center space-x-3">
+                <div class="w-8 h-8 bg-gradient-to-r from-purple-500 to-indigo-600 rounded-lg flex items-center justify-center">
+                    <svg class="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 10h.01M12 10h.01M16 10h.01M9 16H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-5l-5 5v-5z"></path>
+                    </svg>
                 </div>
-                <div class="header-actions">
-                    <button class="btn-icon" onclick="toggleTheme()" title="Toggle theme">
-                        <i class="fas fa-moon"></i>
+                <h1 class="text-xl font-semibold text-gray-900">VibeFlow MCP Chat</h1>
+            </div>
+            <div class="flex items-center space-x-2">
+                <span id="connection-status" class="text-sm text-gray-500">Connecting...</span>
+                <div id="status-dot" class="w-2 h-2 bg-yellow-400 rounded-full"></div>
+            </div>
+        </div>
+    </header>
+
+    <!-- Main Chat Area -->
+    <main class="flex-1 overflow-hidden">
+        <div class="max-w-4xl mx-auto h-full flex flex-col">
+            <!-- Tools Panel -->
+            <div class="bg-white border-b border-gray-200 p-4">
+                <div class="flex items-center justify-between mb-3">
+                    <h3 class="text-sm font-medium text-gray-700">Available Tools</h3>
+                    <button id="refresh-tools" class="text-xs bg-indigo-100 text-indigo-700 px-3 py-1 rounded-full hover:bg-indigo-200 transition-colors">
+                        Refresh Tools
                     </button>
-                    <button class="btn-icon" onclick="clearChat()" title="Clear chat">
-                        <i class="fas fa-trash"></i>
-                    </button>
-                    <button class="btn-icon" onclick="showHelp()" title="Help">
-                        <i class="fas fa-question-circle"></i>
-                    </button>
+                </div>
+                <div id="tools-container" class="flex flex-wrap gap-2">
+                    <div class="text-sm text-gray-500">Loading tools...</div>
                 </div>
             </div>
-        </header>
 
-        <!-- Messages Container -->
-        <main class="messages-container" id="messagesContainer">
-            <div class="welcome-message">
-                <div class="welcome-content">
-                    <i class="fas fa-rocket welcome-icon"></i>
-                    <h2>Welcome to VibeFlow Bot!</h2>
-                    <p>I'm your AI assistant for building projects with VibeFlow. Ask me to create projects, check status, or manage design systems.</p>
-                    <div class="quick-actions">
-                        <button class="quick-action" onclick="sendQuickMessage('help')">
-                            <i class="fas fa-info-circle"></i>
-                            Get Help
-                        </button>
-                        <button class="quick-action" onclick="sendQuickMessage('design systems')">
-                            <i class="fas fa-palette"></i>
-                            Design Systems
-                        </button>
-                        <button class="quick-action" onclick="showProjectCreator()">
-                            <i class="fas fa-plus"></i>
-                            New Project
-                        </button>
-                    </div>
+            <!-- Messages Container -->
+            <div id="messages-container" class="flex-1 overflow-y-auto p-4 space-y-4">
+                <div class="text-center text-gray-500 text-sm py-8">
+                    Connecting to VibeFlow MCP...
                 </div>
             </div>
-        </main>
 
-        <!-- Input Area -->
-        <footer class="input-area">
-            <div class="input-container">
-                <div class="input-wrapper">
-                    <input 
-                        type="text" 
-                        id="messageInput" 
-                        placeholder="Type a message or command..."
-                        autocomplete="off"
-                        maxlength="1000"
+            <!-- Input Area -->
+            <div class="bg-white border-t border-gray-200 p-4">
+                <div class="flex items-end space-x-3">
+                    <div class="flex-1">
+                        <textarea 
+                            id="message-input" 
+                            placeholder="Ask me to build projects, create design systems, or manage your VibeFlow workspace..."
+                            class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent resize-none"
+                            rows="3"
+                        ></textarea>
+                    </div>
+                    <button 
+                        id="send-button" 
+                        class="px-6 py-3 bg-gradient-to-r from-indigo-500 to-purple-600 text-white rounded-lg hover:from-indigo-600 hover:to-purple-700 transition-all transform hover:scale-105 disabled:opacity-50 disabled:cursor-not-allowed"
                     >
-                    <button class="btn-send" id="sendButton" onclick="sendMessage()" disabled>
-                        <i class="fas fa-paper-plane"></i>
+                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8"></path>
+                        </svg>
                     </button>
                 </div>
-                <div class="typing-indicator" id="typingIndicator" style="display: none;">
-                    <span class="typing-dots">
-                        <span></span>
-                        <span></span>
-                        <span></span>
-                    </span>
-                    <span class="typing-text">Bot is typing...</span>
-                </div>
-            </div>
-        </footer>
-    </div>
-
-    <!-- Help Modal -->
-    <div class="modal" id="helpModal">
-        <div class="modal-content">
-            <div class="modal-header">
-                <h3>Help & Commands</h3>
-                <button class="btn-close" onclick="closeModal('helpModal')">
-                    <i class="fas fa-times"></i>
-                </button>
-            </div>
-            <div class="modal-body">
-                <div class="help-section">
-                    <h4><i class="fas fa-cube"></i> Project Management</h4>
-                    <div class="command-list">
-                        <div class="command">
-                            <code>create [project description]</code>
-                            <p>Start a new VibeFlow project</p>
-                        </div>
-                        <div class="command">
-                            <code>status [project-id]</code>
-                            <p>Check project build status</p>
-                        </div>
-                        <div class="command">
-                            <code>open [project-id]</code>
-                            <p>Open project in editor</p>
-                        </div>
-                    </div>
-                </div>
-                <div class="help-section">
-                    <h4><i class="fas fa-palette"></i> Design Systems</h4>
-                    <div class="command-list">
-                        <div class="command">
-                            <code>design systems</code>
-                            <p>List available design systems</p>
-                        </div>
-                        <div class="command">
-                            <code>create design [name]</code>
-                            <p>Create new design system</p>
-                        </div>
-                    </div>
-                </div>
-                <div class="help-section">
-                    <h4><i class="fas fa-keyboard"></i> Other Commands</h4>
-                    <div class="command-list">
-                        <div class="command">
-                            <code>help</code>
-                            <p>Show this help message</p>
-                        </div>
-                        <div class="command">
-                            <code>about</code>
-                            <p>About VibeFlow Bot</p>
-                        </div>
-                    </div>
+                <div class="mt-2 text-xs text-gray-500">
+                    Press Enter to send • Click tool buttons for guided input
                 </div>
             </div>
         </div>
-    </div>
+    </main>
 
-    <!-- Project Creator Modal -->
-    <div class="modal" id="projectModal">
-        <div class="modal-content">
-            <div class="modal-header">
-                <h3>Create New Project</h3>
-                <button class="btn-close" onclick="closeModal('projectModal')">
-                    <i class="fas fa-times"></i>
-                </button>
-            </div>
-            <div class="modal-body">
-                <div class="form-group">
-                    <label for="projectDescription">Project Description</label>
-                    <textarea 
-                        id="projectDescription" 
-                        placeholder="Describe what you want to build..."
-                        rows="4"
-                    ></textarea>
-                </div>
-                <div class="form-group">
-                    <label for="designSystem">Design System (Optional)</label>
-                    <select id="designSystem">
-                        <option value="">Default</option>
-                    </select>
-                </div>
-            </div>
-            <div class="modal-footer">
-                <button class="btn btn-secondary" onclick="closeModal('projectModal')">Cancel</button>
-                <button class="btn btn-primary" onclick="createProject()">
-                    <i class="fas fa-rocket"></i> Create Project
-                </button>
-            </div>
-        </div>
-    </div>
+    <script>
+        // VibeFlow MCP Client
+        class VibeFlowMCPClient {
+            constructor() {
+                this.apiKey = 'vf_mcp_DCw8Ey6e1mzEoPgLBoI9WGShagITyeKD';
+                this.baseUrl = 'https://tool.vibeflow.ai/mcp';
+                this.tools = [];
+                this.messageId = 1;
+                this.initialized = false;
+            }
 
-    <script src="/socket.io/socket.io.js"></script>
-    <script src="script.js"></script>
+            async initialize() {
+                try {
+                    const response = await this.sendRequest('initialize', {
+                        protocolVersion: '2024-11-05',
+                        capabilities: { tools: {} },
+                        clientInfo: { name: 'VibeFlow Chat', version: '1.0.0' }
+                    });
+
+                    if (response.result) {
+                        this.initialized = true;
+                        await this.loadTools();
+                        return true;
+                    }
+                    return false;
+                } catch (error) {
+                    console.error('Failed to initialize MCP:', error);
+                    return false;
+                }
+            }
+
+            async sendRequest(method, params = {}) {
+                const response = await fetch(this.baseUrl, {
+                    method: 'POST',
+                    headers: {
+                        'Authorization': `Bearer ${this.apiKey}`,
+                        'Content-Type': 'application/json',
+                        'Accept': 'application/json, text/event-stream'
+                    },
+                    body: JSON.stringify({
+                        jsonrpc: '2.0',
+                        id: this.messageId++,
+                        method: method,
+                        params: params
+                    })
+                });
+
+                const text = await response.text();
+                
+                if (text.startsWith('event: message\ndata: ')) {
+                    const data = text.replace('event: message\ndata: ', '');
+                    return JSON.parse(data);
+                }
+                
+                return JSON.parse(text);
+            }
+
+            async loadTools() {
+                try {
+                    const response = await this.sendRequest('tools/list');
+                    if (response.result && response.result.tools) {
+                        this.tools = response.result.tools;
+                        return this.tools;
+                    }
+                    return [];
+                } catch (error) {
+                    console.error('Failed to load tools:', error);
+                    return [];
+                }
+            }
+
+            async callTool(toolName, arguments_ = {}) {
+                try {
+                    const response = await this.sendRequest('tools/call', {
+                        name: toolName,
+                        arguments: arguments_
+                    });
+
+                    if (response.result && response.result.content) {
+                        return response.result.content[0].text;
+                    }
+                    if (response.error) {
+                        throw new Error(response.error.message || 'MCP server error');
+                    }
+                    return null;
+                } catch (error) {
+                    console.error(`Failed to call tool ${toolName}:`, error);
+                    throw error;
+                }
+            }
+
+            getToolByName(name) {
+                return this.tools.find(tool => tool.name === name);
+            }
+
+            getToolsByCategory() {
+                const categories = {
+                    'Project Management': ['initiate_project', 'get_project', 'open_project_for_editing', 'export_flow_json'],
+                    'Design Systems': ['get_all_design_systems', 'create_design_system', 'update_design_system', 'add_component_to_design_system']
+                };
+
+                const categorized = {};
+                for (const [category, toolNames] of Object.entries(categories)) {
+                    categorized[category] = this.tools.filter(tool => toolNames.includes(tool.name));
+                }
+
+                return categorized;
+            }
+        }
+
+        // Chat Interface
+        class ChatInterface {
+            constructor() {
+                this.mcpClient = new VibeFlowMCPClient();
+                this.messages = [];
+                this.isProcessing = false;
+                this.initializeElements();
+                this.attachEventListeners();
+                this.initializeChat();
+            }
+
+            initializeElements() {
+                this.messagesContainer = document.getElementById('messages-container');
+                this.messageInput = document.getElementById('message-input');
+                this.sendButton = document.getElementById('send-button');
+                this.toolsContainer = document.getElementById('tools-container');
+                this.refreshToolsButton = document.getElementById('refresh-tools');
+                this.connectionStatus = document.getElementById('connection-status');
+                this.statusDot = document.getElementById('status-dot');
+            }
+
+            attachEventListeners() {
+                this.sendButton.addEventListener('click', () => this.sendMessage());
+                this.messageInput.addEventListener('keydown', (e) => {
+                    if (e.key === 'Enter' && !e.shiftKey) {
+                        e.preventDefault();
+                        this.sendMessage();
+                    }
+                });
+                this.refreshToolsButton.addEventListener('click', () => this.refreshTools());
+            }
+
+            async initializeChat() {
+                this.updateConnectionStatus('Connecting...', 'yellow');
+                
+                const initialized = await this.mcpClient.initialize();
+                if (initialized) {
+                    this.updateConnectionStatus('Connected', 'green');
+                    this.displayTools();
+                    this.addMessage('system', 'VibeFlow MCP connected! All tools are now available.');
+                } else {
+                    this.updateConnectionStatus('Connection Failed', 'red');
+                    this.addMessage('system', 'Failed to connect to VibeFlow MCP. Please check your API key and try again.');
+                }
+            }
+
+            updateConnectionStatus(status, color) {
+                this.connectionStatus.textContent = status;
+                this.statusDot.className = `w-2 h-2 bg-${color}-400 rounded-full`;
+            }
+
+            displayTools() {
+                const categorizedTools = this.mcpClient.getToolsByCategory();
+                let html = '';
+
+                for (const [category, tools] of Object.entries(categorizedTools)) {
+                    if (tools.length > 0) {
+                        html += `<div class="mb-3"><h4 class="text-xs font-medium text-gray-600 mb-2">${category}</h4><div class="flex flex-wrap gap-2">`;
+                        tools.forEach(tool => {
+                            html += `
+                                <button class="tool-button text-xs bg-gray-100 hover:bg-gray-200 px-2 py-1 rounded transition-colors" data-tool="${tool.name}">
+                                    ${tool.name.replace(/_/g, ' ')}
+                                </button>
+                            `;
+                        });
+                        html += '</div></div>';
+                    }
+                }
+
+                this.toolsContainer.innerHTML = html;
+
+                // Add click handlers to tool buttons
+                document.querySelectorAll('.tool-button').forEach(button => {
+                    button.addEventListener('click', (e) => {
+                        const toolName = e.target.dataset.tool;
+                        const tool = this.mcpClient.getToolByName(toolName);
+                        if (tool) {
+                            this.showToolDialog(tool);
+                        }
+                    });
+                });
+            }
+
+            showToolDialog(tool) {
+                const requiredParams = tool.inputSchema.required || [];
+                const properties = tool.inputSchema.properties || {};
+                
+                let formHtml = `
+                    <div class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+                        <div class="bg-white rounded-lg p-6 max-w-md w-full mx-4 max-h-[80vh] overflow-y-auto">
+                            <h3 class="text-lg font-semibold mb-2">${tool.name.replace(/_/g, ' ')}</h3>
+                            <p class="text-sm text-gray-600 mb-4">${tool.description}</p>
+                            <form id="tool-form">
+                `;
+
+                for (const [paramName, paramInfo] of Object.entries(properties)) {
+                    const isRequired = requiredParams.includes(paramName);
+                    formHtml += `
+                        <div class="mb-4">
+                            <label class="block text-sm font-medium text-gray-700 mb-1">
+                                ${paramName}${isRequired ? ' *' : ''}
+                            </label>
+                            ${paramInfo.type === 'string' && paramInfo.maxLength > 100 ? 
+                                `<textarea name="${paramName}" class="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-indigo-500 focus:border-indigo-500" rows="4" ${isRequired ? 'required' : ''} placeholder="${paramInfo.description || ''}"></textarea>` :
+                                `<input type="${paramInfo.type === 'number' ? 'number' : 'text'}" name="${paramName}" class="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-indigo-500 focus:border-indigo-500" ${isRequired ? 'required' : ''} placeholder="${paramInfo.description || ''}">`
+                            }
+                        </div>
+                    `;
+                }
+
+                formHtml += `
+                            <div class="flex justify-end space-x-3">
+                                <button type="button" onclick="this.closest('.fixed').remove()" class="px-4 py-2 text-gray-600 hover:text-gray-800">Cancel</button>
+                                <button type="submit" class="px-4 py-2 bg-indigo-600 text-white rounded-md hover:bg-indigo-700">Execute</button>
+                            </div>
+                        </form>
+                    </div>
+                </div>
+            `;
+
+                document.body.insertAdjacentHTML('beforeend', formHtml);
+
+                document.getElementById('tool-form').addEventListener('submit', async (e) => {
+                    e.preventDefault();
+                    const formData = new FormData(e.target);
+                    const args = {};
+                    
+                    for (const [key, value] of formData.entries()) {
+                        if (value) args[key] = value;
+                    }
+
+                    document.querySelector('.fixed').remove();
+                    await this.executeTool(tool.name, args);
+                });
+            }
+
+            async executeTool(toolName, args) {
+                // Handle special case for create_design_system dialog
+                if (args && args.show_dialog) {
+                    const tool = this.mcpClient.getToolByName(toolName);
+                    if (tool) {
+                        this.showToolDialog(tool);
+                        return;
+                    }
+                }
+
+                this.addMessage('user', `Calling ${toolName.replace(/_/g, ' ')} with: ${JSON.stringify(args, null, 2)}`);
+                this.showTypingIndicator();
+
+                try {
+                    const result = await this.mcpClient.callTool(toolName, args);
+                    this.hideTypingIndicator();
+                    
+                    if (result) {
+                        let parsedResult;
+                        try {
+                            parsedResult = JSON.parse(result);
+                        } catch (parseError) {
+                            // If it's not valid JSON, treat it as plain text
+                            parsedResult = { message: result };
+                        }
+                        this.addMessage('tool', `✅ ${toolName.replace(/_/g, ' ')} executed successfully:`, parsedResult);
+                    }
+                } catch (error) {
+                    this.hideTypingIndicator();
+                    this.addMessage('error', `❌ Error executing ${toolName}: ${error.message}`);
+                }
+            }
+
+            addMessage(type, content, data = null) {
+                const messageDiv = document.createElement('div');
+                messageDiv.className = `message ${type}`;
+                
+                let messageContent = '';
+                switch (type) {
+                    case 'user':
+                        messageContent = `
+                            <div class="flex justify-end">
+                                <div class="user-message text-white max-w-xs lg:max-w-md px-4 py-2 rounded-lg">
+                                    <p class="text-sm">${content}</p>
+                                </div>
+                            </div>
+                        `;
+                        break;
+                    case 'assistant':
+                        messageContent = `
+                            <div class="flex justify-start">
+                                <div class="bg-white text-gray-800 max-w-xs lg:max-w-md px-4 py-2 rounded-lg shadow">
+                                    <p class="text-sm whitespace-pre-line">${content}</p>
+                                </div>
+                            </div>
+                        `;
+                        break;
+                    case 'tool':
+                        messageContent = `
+                            <div class="flex justify-start">
+                                <div class="tool-response text-white max-w-xs lg:max-w-md px-4 py-2 rounded-lg">
+                                    <p class="text-sm font-medium">${content}</p>
+                                    ${data ? `<pre class="text-xs mt-2 bg-black bg-opacity-20 p-2 rounded overflow-x-auto">${JSON.stringify(data, null, 2)}</pre>` : ''}
+                                </div>
+                            </div>
+                        `;
+                        break;
+                    case 'system':
+                        messageContent = `
+                            <div class="flex justify-center">
+                                <div class="bg-gray-200 text-gray-700 text-xs px-3 py-1 rounded-full">
+                                    ${content}
+                                </div>
+                            </div>
+                        `;
+                        break;
+                    case 'error':
+                        messageContent = `
+                            <div class="flex justify-start">
+                                <div class="bg-red-100 text-red-700 max-w-xs lg:max-w-md px-4 py-2 rounded-lg border border-red-200">
+                                    <p class="text-sm">${content}</p>
+                                </div>
+                            </div>
+                        `;
+                        break;
+                }
+                
+                messageDiv.innerHTML = messageContent;
+                this.messagesContainer.appendChild(messageDiv);
+                this.messagesContainer.scrollTop = this.messagesContainer.scrollHeight;
+            }
+
+            async sendMessage() {
+                const message = this.messageInput.value.trim();
+                if (!message || this.isProcessing) return;
+
+                this.addMessage('user', message);
+                this.messageInput.value = '';
+                this.showTypingIndicator();
+
+                try {
+                    const intent = this.detectIntent(message);
+                    let response = '';
+
+                    if (intent.tool) {
+                        await this.executeTool(intent.tool, intent.args || {});
+                    } else {
+                        response = this.generateHelpfulResponse(message);
+                        this.hideTypingIndicator();
+                        this.addMessage('assistant', response);
+                    }
+                } catch (error) {
+                    this.hideTypingIndicator();
+                    this.addMessage('error', `Error: ${error.message}`);
+                }
+            }
+
+            detectIntent(message) {
+                const lowerMessage = message.toLowerCase();
+                
+                // Project building intents
+                if (lowerMessage.includes('build') || lowerMessage.includes('create') || lowerMessage.includes('make')) {
+                    if (lowerMessage.includes('project') || lowerMessage.includes('app') || lowerMessage.includes('website')) {
+                        // Extract mode if specified
+                        let mode = 'with_backend'; // default
+                        if (lowerMessage.includes('frontend only') || lowerMessage.includes('frontend-only')) {
+                            mode = 'frontend_only';
+                        }
+                        return { tool: 'initiate_project', args: { prompt: message, mode: mode } };
+                    }
+                }
+                
+                // Project status intents
+                if (lowerMessage.includes('status') || lowerMessage.includes('check')) {
+                    if (lowerMessage.includes('project')) {
+                        // Try to extract project ID from message
+                        const projectIdMatch = message.match(/([a-z0-9]{32})/);
+                        if (projectIdMatch) {
+                            return { tool: 'get_project', args: { project_id: projectIdMatch[1] } };
+                        }
+                    }
+                }
+                
+                // Project editing intents
+                if (lowerMessage.includes('open') || lowerMessage.includes('edit')) {
+                    if (lowerMessage.includes('project')) {
+                        const projectIdMatch = message.match(/([a-z0-9]{32})/);
+                        if (projectIdMatch) {
+                            return { tool: 'open_project_for_editing', args: { project_id: projectIdMatch[1] } };
+                        }
+                    }
+                }
+                
+                // Design system intents
+                if (lowerMessage.includes('design system') || lowerMessage.includes('component')) {
+                    if (lowerMessage.includes('create') || lowerMessage.includes('new')) {
+                        // Don't auto-call create_design_system without parameters - let user use tool button
+                        return { tool: 'create_design_system', args: { show_dialog: true } };
+                    }
+                    if (lowerMessage.includes('list') || lowerMessage.includes('show') || lowerMessage.includes('get all')) {
+                        return { tool: 'get_all_design_systems' };
+                    }
+                    if (lowerMessage.includes('update') || lowerMessage.includes('modify')) {
+                        return { tool: 'update_design_system' };
+                    }
+                    if (lowerMessage.includes('add component') || lowerMessage.includes('add to')) {
+                        return { tool: 'add_component_to_design_system' };
+                    }
+                }
+
+                // Export intents
+                if (lowerMessage.includes('export') || lowerMessage.includes('download')) {
+                    if (lowerMessage.includes('flow') || lowerMessage.includes('json')) {
+                        const projectIdMatch = message.match(/([a-z0-9]{32})/);
+                        if (projectIdMatch) {
+                            return { tool: 'export_flow_json', args: { project_id: projectIdMatch[1] } };
+                        }
+                    }
+                }
+
+                return null;
+            }
+
+            generateHelpfulResponse(message) {
+                const tools = this.mcpClient.getToolsByCategory();
+                let response = `I can help you with VibeFlow tasks! Here's what I can do:\n\n`;
+                
+                for (const [category, categoryTools] of Object.entries(tools)) {
+                    if (categoryTools.length > 0) {
+                        response += `**${category}:**\n`;
+                        categoryTools.forEach(tool => {
+                            response += `- ${tool.name.replace(/_/g, ' ')}: ${tool.description}\n`;
+                        });
+                        response += '\n';
+                    }
+                }
+                
+                response += `**Quick examples:**\n`;
+                response += `- "create a todo app" - Build a todo application\n`;
+                response += `- "list design systems" - Show all design systems\n`;
+                response += `- "check project [project_id]" - Check project status\n`;
+                response += `- "open project [project_id]" - Open project for editing\n`;
+                response += `\nYou can also click the tool buttons above for guided input!`;
+                
+                return response;
+            }
+
+            showTypingIndicator() {
+                const indicator = document.createElement('div');
+                indicator.id = 'typing-indicator';
+                indicator.className = 'message typing';
+                indicator.innerHTML = `
+                    <div class="flex justify-start">
+                        <div class="bg-gray-200 px-4 py-2 rounded-lg">
+                            <div class="typing-indicator flex space-x-1">
+                                <span class="w-2 h-2 bg-gray-500 rounded-full"></span>
+                                <span class="w-2 h-2 bg-gray-500 rounded-full"></span>
+                                <span class="w-2 h-2 bg-gray-500 rounded-full"></span>
+                            </div>
+                        </div>
+                    </div>
+                `;
+                this.messagesContainer.appendChild(indicator);
+                this.messagesContainer.scrollTop = this.messagesContainer.scrollHeight;
+            }
+
+            hideTypingIndicator() {
+                const indicator = document.getElementById('typing-indicator');
+                if (indicator) {
+                    indicator.remove();
+                }
+            }
+
+            async refreshTools() {
+                this.refreshToolsButton.disabled = true;
+                this.refreshToolsButton.textContent = 'Refreshing...';
+                
+                await this.mcpClient.loadTools();
+                this.displayTools();
+                
+                this.refreshToolsButton.disabled = false;
+                this.refreshToolsButton.textContent = 'Refresh Tools';
+                this.addMessage('system', 'Tools refreshed successfully!');
+            }
+        }
+
+        // Initialize the chat interface when the page loads
+        document.addEventListener('DOMContentLoaded', () => {
+            new ChatInterface();
+        });
+    </script>
 </body>
 </html>
