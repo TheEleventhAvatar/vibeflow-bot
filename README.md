@@ -2,6 +2,10 @@
 
 **VibeFlow Bot** is a real-time chat interface with Slack/Teams/iMessage-style UI that integrates with the [VibeFlow](https://vibeflow.ai) MCP (Model Context Protocol) server for AI-driven project generation and management.
 
+## 🎥 Demo
+
+[![VibeFlow Bot Demo](https://img.youtube.com/vi/krkEol3krfA/maxresdefault.jpg)](https://www.youtube.com/watch?v=krkEol3krfA)
+
 ## ✨ Features
 
 - **Real-time chat** — Powered by Socket.IO with message history and status tracking
